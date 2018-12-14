@@ -410,7 +410,7 @@
     <Resource Id="Fail"/>
   </RestConnector>
 
-  <RestConnector Id="PollGenerateReport" HelpUrl="https://docs.microsoft.com/en-us/bingads/reporting-service/pollgeneratereport?view=bingads-12">
+  <RestConnector Id="PollGenerateReport" Hidden="true" HelpUrl="https://docs.microsoft.com/en-us/bingads/reporting-service/pollgeneratereport?view=bingads-12">
     <Parameters>
       <Text Id="CampaignId" Debug.DefaultValue="349338690"/>
       <Text Id="AccountId" Title="Account Id" Required="true" Debug.DefaultValue="150145763"/>
@@ -459,7 +459,7 @@
   </RestConnector>
 
 
-  <RestConnector Id="Test">
+  <RestConnector Id="AdGroupPerformanceReport" Title="Ad group performance report" HelpText="Use this report to compare how well different versions of your ad extensions are performing with each ad.">
     <Parameters>
       <Text Id="CampaignId" Debug.DefaultValue="349338690"/>
       <Text Id="Email" Debug.DefaultValue="dovydas.m@gmail.com"/>
@@ -469,68 +469,35 @@
       <Fetch.Url>
         <![CDATA[
           @{
-            string reportRequestId = "";
             string reporturl = "";
-
-            //Initial CampaignPerformanceReportRequest
-            System.Net.HttpWebRequest req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://reporting.api.bingads.microsoft.com/Api/Advertiser/Reporting/v12/ReportingService.svc");
             string generatedBody = getRequestReportBody();
-            string html = "";
-            req.Method = "POST";
-            req.ContentType = "text/xml; charset=utf-8";
-            req.Headers["SOAPAction"] = "SubmitGenerateReport";
-            var data = Encoding.ASCII.GetBytes(generatedBody);
-            req.ContentLength = data.Length;
-
-            using (var stream = req.GetRequestStream())
-            {
-                stream.Write(data, 0, data.Length);
+            string reportRequestId = getReportId(generatedBody);
+            reporturl = getReportUrl(reportRequestId);
             }
-
-            using (System.Net.HttpWebResponse response = (System.Net.HttpWebResponse)req.GetResponse())
-            using (System.IO.Stream stream = response.GetResponseStream())
-            using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
-            {
-                html = reader.ReadToEnd();
-                Regex regex = new Regex(@"<ReportRequestId>([^<]+)");
-                Match match = regex.Match(html);
-                reportRequestId = match.Groups[1].Value;
-                //throw new Exception(reportRequestId);
-
-            }
-
-            bool finished = false;
-            while (finished == false){
-              System.Net.HttpWebRequest request = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://reporting.api.bingads.microsoft.com/Api/Advertiser/Reporting/v12/ReportingService.svc");
-              html = "";
-
-              string genBody = getPollBody(reportRequestId);
-              request.Method = "POST";
-              request.ContentType = "text/xml; charset=utf-8";
-              request.Headers["SOAPAction"] = "PollGenerateReport";
-              var bodyData = Encoding.ASCII.GetBytes(genBody);
-              request.ContentLength = bodyData.Length;
-
-              using (var stream = request.GetRequestStream())
-              {
-                  stream.Write(bodyData, 0, bodyData.Length);
-              }
-
-              using (System.Net.HttpWebResponse response = (System.Net.HttpWebResponse)request.GetResponse())
-              using (System.IO.Stream stream = response.GetResponseStream())
-              using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
-              {
-                  html = reader.ReadToEnd();
-              }
-              finished = true;
-             }
-            }
-          https://www.google.com/
+          @reporturl
         ]]>
       </Fetch.Url>
     </Fetch>
     <Parse>
-      <Xpath Expr="//*" Id="test"/>
+      <Csv Separator="," HasHeader="true">
+        <Field Id="AdGroupId" Title="Ad Group Id" HelpText="The Bing Ads assigned identifier of an ad group." Converter="Double"/>
+        <Field Id="Revenue" Title="Revenue" HelpText="The revenue optionally reported by the advertiser as a result of conversions." Converter="Double"/>
+        <Field Id="ReturnOnAdSpend" Title="Return On Ad Spend" Converter="Double" HelpText="The return on ad spend (ROAS). The formula for calculating the ROAS is (Revenue / Spend)."/>
+        <Field Id="Clicks" Title="Clicks" Converter="Int" HelpText="Clicks are what you pay for. Clicks typically include a customer clicking an ad on a search results page or on a website on the search network. Clicks can also come from other sources (for example, spiders, robots, and test servers)"/>
+        <Field Id="Impressions" Title="Impressions" Converter="Int" HelpText="The number of times an ad has been displayed on search results pages."/>
+        <Field Id="AverageCpc" Title="Average Cpc" Converter="Double" HelpText="The average cost per click (CPC). The total cost of all clicks on an ad divided by the number of clicks. "/>
+        <Field Id="AveragePosition"  Title="Average Position" Converter="Double" HelpText="The average position of the ad on a webpage."/>
+        <Field Id="Ctr" Title="CTR" HelpText="The click-through rate (CTR) is the number of times an ad was clicked, divided by the number of times the ad was shown (impressions"/>
+        <Field Id="Spend" Title="Spend" Converter="Double" HelpText="The cost per click (CPC) summed for each click."/>
+        <Field Id="Conversions" Title="Conversions" Converter="Double" HelpText="The number of conversions. A conversion is the completion of an action by a customer after viewing your ad. "/>
+        <Field Id="CostPerConversion" Title="Cost Per Conversion" Converter="Double" HelpText="The cost per conversion. The formula for calculating the cost per conversion is (Spend / Conversions). "/>
+        <Field Id="ImpressionSharePercent" Title="Impression Share Percent" HelpText="The estimated percentage of impressions, out of the total available impressions in the market you were targeting. "/>
+        <Field Id="ImpressionLostToBudgetPercent" Title="Impression Lost To Budget Percent" HelpText=""/>
+        <Field Id="ImpressionLostToRankPercent" Title="Impression Lost To Rank Percent" Converter="Auto" HelpText=""/>
+        <Field Id="ImpressionLostToBidPercent" Title="Impression Lost To Bid Percent" HelpText=""/>
+        <Field Id="ImpressionLostToAdRelevancePercent" Title="Impression Lost To Ad Relevance Percent" HelpText=""/>
+        <Field Id="ImpressionLostToExpectedCtrPercent" Title="Impression Lost To Expected Ctr Percent" HelpText=""/>
+      </Csv>
     </Parse>
   </RestConnector>
 
@@ -588,6 +555,32 @@
       return node.InnerText;
     }
 
+    string getReportId(string generatedBody){
+     System.Net.HttpWebRequest req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://reporting.api.bingads.microsoft.com/Api/Advertiser/Reporting/v12/ReportingService.svc");
+     string html = "";
+     req.Method = "POST";
+     req.ContentType = "text/xml; charset=utf-8";
+     req.Headers["SOAPAction"] = "SubmitGenerateReport";
+     var data = Encoding.ASCII.GetBytes(generatedBody);
+     req.ContentLength = data.Length;
+
+     using (var stream = req.GetRequestStream())
+     {
+         stream.Write(data, 0, data.Length);
+     }
+
+     using (System.Net.HttpWebResponse response = (System.Net.HttpWebResponse)req.GetResponse())
+     using (System.IO.Stream stream = response.GetResponseStream())
+     using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+     {
+         html = reader.ReadToEnd();
+         Regex regex = new Regex(@"<ReportRequestId>([^<]+)");
+         Match match = regex.Match(html);
+         reportRequestId = match.Groups[1].Value;
+         return reportRequestId;
+     }
+    }
+
     Tuple<string,string> GetIds(string combined){
       string customerId = "";
       string accountId = "";
@@ -603,6 +596,37 @@
             }
         }
        return new Tuple<string,string>(customerId, accountId);
+    }
+
+    string getReportUrl(string reportRequestId){
+      bool finished = false;
+      string html = "";
+
+      while (finished == false){
+        System.Net.HttpWebRequest request = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://reporting.api.bingads.microsoft.com/Api/Advertiser/Reporting/v12/ReportingService.svc");
+
+        string genBody = getPollBody(reportRequestId);
+        request.Method = "POST";
+        request.ContentType = "text/xml; charset=utf-8";
+        request.Headers["SOAPAction"] = "PollGenerateReport";
+        var bodyData = Encoding.ASCII.GetBytes(genBody);
+        request.ContentLength = bodyData.Length;
+
+        using (var stream = request.GetRequestStream())
+        {
+            stream.Write(bodyData, 0, bodyData.Length);
+        }
+
+        using (System.Net.HttpWebResponse response = (System.Net.HttpWebResponse)request.GetResponse())
+        using (System.IO.Stream stream = response.GetResponseStream())
+        using (System.IO.StreamReader reader = new System.IO.StreamReader(stream))
+        {
+            html = reader.ReadToEnd();
+        }
+
+        System.Threading.Thread.Sleep(1);
+        finished = true;
+       }
     }
 
     string getRequestReportBody (){
